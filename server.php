@@ -10,11 +10,33 @@
 
     socket_listen($socket);
 
+    $clientSocketArray = array($socket);
+
     while (true){
-        $newSocket = socket_accept($socket);
-        $header = socket_read($newSocket, 1024);
-        // print_r($header);
-        $chat->sendHeaders($header, $newSocket, "localhost/chat", PORT);
+        $newSocketArray = $clientSocketArray;
+        //есть ли доступные символы для чтения?
+        //возвращает массиво сокетов, состояние которых было изменено
+        $nullA = [];
+        socket_select($newSocketArray, $nullA, $nullA, 0, 10);
+        if (in_array($socket, $newSocketArray)){
+            $newSocket = socket_accept($socket);
+            $clientSocketArray[] = $newSocket;
+
+            $header = socket_read($newSocket, 1024);
+            $chat->sendHeaders($header, $newSocket, "localhost/chat", PORT);
+
+            socket_getpeername($newSocket, $client_ip_address);
+            
+            $connectionACK = $chat->newConnectionACK($client_ip_address);
+            $chat->send($connectionACK, $clientSocketArray);
+
+            // echo $client_ip_address;
+        }
+
+
+
+        
+        
     }
 
     socket_close($socket);

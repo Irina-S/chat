@@ -23,6 +23,45 @@
 
             socket_write($newSocket, $strHeader, strlen($strHeader));
         }
+
+        public function newConnectionACK($client_ip_address){
+            $message = "New client ".$client_ip_address. " connected.";
+            $messageArray = [
+                "message"=>$message,
+                "type"=>"newConnectionACK"
+            ];
+            $ask = $this->seal(json_encode($messageArray));
+            return $ask;
+        }
+
+        //формирует данные, которуе будут переданны в клиентскую часть
+        public function seal($socketData){
+            $b1 = 0x81;
+            $length = strlen($socketData);
+            $header = "";
+
+            if ($length <= 125){
+                $header = pack('CC', $b1, $length);
+            } 
+            else if (($length > 125) && ($length < 65536)){
+                $header = pack('CCn', $b1, 126, $length);
+            }
+            else if ($length >= 65536){
+                $header = pack('NN', $b1, 127, $length);
+            }
+            echo $header, $length;
+            return $header.$socketData;
+        }
+
+        public function send($message, $clientSocketArray){
+            $messageLength = strlen($message);
+
+            foreach($clientSocketArray as $clientSocket){
+                @socket_write($clientSocket, $message, $messageLength);
+            }
+
+            return true;
+        }
     }
 ?>
 
