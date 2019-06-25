@@ -34,6 +34,16 @@
             return $ask;
         }
 
+        public function newDisconnectedACK($client_ip_address){
+            $message = "Client ".$client_ip_address. " disconnected.";
+            $messageArray = [
+                "message"=>$message,
+                "type"=>"newConnectionACK"
+            ];
+            $ask = $this->seal(json_encode($messageArray));
+            return $ask;
+        }
+
         //формирует данные, которуе будут переданны в клиентскую часть
         public function seal($socketData){
             $b1 = 0x81;
@@ -49,19 +59,50 @@
             else if ($length >= 65536){
                 $header = pack('NN', $b1, 127, $length);
             }
-            echo $header, $length;
             return $header.$socketData;
+        }
+
+        public function unseal($socketData){
+            $length = ord($socketData[1]) & 127;
+
+            if ($length == 126){
+                $mask = substr($socketData, 4, 4);
+                $data = substr($socketData, 8);
+            }
+            else if ($length == 127){
+                $mask = substr($socketData, 10, 4);
+                $data = substr($socketData, 14);
+            }
+            else{
+                $mask = substr($socketData, 2, 4);
+                $data = substr($socketData, 6);
+            }
+            $socketStr = "";
+            for ($i = 0; $i<strlen($data); ++$i){
+                $socketStr.= $data[$i]^$mask[$i%4];
+            }
+            return $socketStr;
         }
 
         public function send($message, $clientSocketArray){
             $messageLength = strlen($message);
-
+            echo "Отправляем сообщение ".$message;
             foreach($clientSocketArray as $clientSocket){
                 @socket_write($clientSocket, $message, $messageLength);
             }
 
             return true;
         }
-    }
+
+        public function createChatMessage($username, $messageStr){
+            $message = $username."<div>".$messageStr."</div>";
+            $messageArray = [
+                "message"=>$message,
+                "type"=>"chat-box"
+            ];
+
+            return $this->seal(json_encode($messageArray));
+        }
+     }
 ?>
 
