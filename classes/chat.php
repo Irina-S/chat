@@ -1,6 +1,8 @@
 <?php
     class Chat
     {
+
+        //отправка заголовков клиенту
         public function sendHeaders($headersText, $newSocket, $host, $port){
             $headers = array();
             $tmpline = preg_split("/\r\n/", $headersText);
@@ -23,7 +25,8 @@
 
             socket_write($newSocket, $strHeader, strlen($strHeader));
         }
-
+        
+        //оповещение о подключившемся клиенте
         public function newConnectionACK($client_ip_address){
             $message = "New client ".$client_ip_address. " connected.";
             $messageArray = [
@@ -34,6 +37,7 @@
             return $ask;
         }
 
+        //оповещение о отключившемся клиенте
         public function newDisconnectedACK($client_ip_address){
             $message = "Client ".$client_ip_address. " disconnected.";
             $messageArray = [
@@ -49,7 +53,7 @@
             $b1 = 0x81;
             $length = strlen($socketData);
             $header = "";
-
+            //значение 2 байта зависит от длинны данных
             if ($length <= 125){
                 $header = pack('CC', $b1, $length);
             } 
@@ -61,10 +65,11 @@
             }
             return $header.$socketData;
         }
-
+        
+        //разбирает пришедшие данные
         public function unseal($socketData){
             $length = ord($socketData[1]) & 127;
-
+            //расположение маски и данных зависит от длинны данных и значения 2 байта
             if ($length == 126){
                 $mask = substr($socketData, 4, 4);
                 $data = substr($socketData, 8);
@@ -78,15 +83,18 @@
                 $data = substr($socketData, 6);
             }
             $socketStr = "";
+            //декодирование:применение маски к данным
             for ($i = 0; $i<strlen($data); ++$i){
                 $socketStr.= $data[$i]^$mask[$i%4];
             }
+            echo "Новое сообщение:".$socketStr;
             return $socketStr;
         }
 
+        //рассылает сообщение сокетам клиентов
         public function send($message, $clientSocketArray){
             $messageLength = strlen($message);
-            echo "Отправляем сообщение ".$message;
+            echo "Отправляем сообщение клиентам: \n".$message."\n";
             foreach($clientSocketArray as $clientSocket){
                 @socket_write($clientSocket, $message, $messageLength);
             }
@@ -94,13 +102,14 @@
             return true;
         }
 
+        //формирует сообщение чата
         public function createChatMessage($username, $messageStr){
             $message = $username."<div>".$messageStr."</div>";
             $messageArray = [
                 "message"=>$message,
                 "type"=>"chat-box"
             ];
-
+            echo "Формируем сообщение :".$messageArray."\n";
             return $this->seal(json_encode($messageArray));
         }
      }
